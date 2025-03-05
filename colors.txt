@@ -1,0 +1,22 @@
+{
+  primary: {
+    50: '#f0f9ff',  // Lightest blue - great for backgrounds
+    100: '#e0f2fe', // Very light blue - hover states
+    200: '#bae6fd', // Light blue - subtle highlights
+    300: '#7dd3fc', // Mid-light blue - secondary buttons
+    400: '#38bdf8', // Medium blue - active states
+    500: '#0ea5e9', // Main blue - primary buttons, links
+    600: '#0284c7', // Darker blue - hover states for buttons
+    700: '#0369a1', // Dark blue - active states
+    800: '#075985', // Very dark blue - text on light backgrounds
+    900: '#0c4a6e', // Darkest blue - emphasis text
+  }
+}
+
+
+This color scheme follows a systematic approach where:
+50-100: Background colors, hover states for light elements
+200-300: Secondary elements, highlights
+400-500: Primary actions, main brand color
+600-700: Hover states, active states
+800-900: Text, high-contrast elements
