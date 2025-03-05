@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from rest_framework import status, viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -13,15 +13,58 @@ import uuid
 from google.oauth2 import id_token
 from google.auth.transport import requests
 import os
+from django.utils.http import urlsafe_base64_decode
+from django.utils.encoding import force_str
+from .tokens import account_activation_token
 
 from .serializers import UserSerializer, RegisterSerializer, GoogleAuthSerializer
 
 User = get_user_model()
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def verify_email(request):
+    try:
+        token = request.GET.get('token')
+        if not token:
+            return Response(
+                {'error': 'Verification token is missing'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Log the token for debugging
+        print(f"Received verification token: {token}")
+
+        # Find user with matching token
+        for user in User.objects.filter(is_active=False):
+            if account_activation_token.check_token(user, token):
+                user.is_active = True
+                user.save()
+                return Response({
+                    'message': 'Your email has been verified successfully! You can now log in.'
+                }, status=status.HTTP_200_OK)
+
+        return Response(
+            {'error': 'Invalid or expired verification token'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    except Exception as e:
+        print(f"Error during email verification: {str(e)}")
+        return Response(
+            {'error': 'An error occurred during email verification'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
 class AuthViewSet(viewsets.GenericViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [AllowAny]
+
+    def get_permissions(self):
+        if self.action in ['resend_verification', 'register', 'login', 'google_auth']:
+            return [AllowAny()]
+        return [IsAuthenticated()]
 
     def get_serializer_class(self):
         if self.action == 'register':
@@ -32,61 +75,105 @@ class AuthViewSet(viewsets.GenericViewSet):
 
     @action(detail=False, methods=['post'])
     def register(self, request):
-        try:
-            print("Registration data received:", request.data)  # Debug print
-            serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            # Create user but don't save yet
+            user = serializer.save(is_active=False)  # Set user as inactive until email verification
             
-            if not serializer.is_valid():
-                print("Validation errors:", serializer.errors)  # Debug print
-                return Response(
-                    {
-                        'error': serializer.errors,
-                        'message': 'Invalid registration data'
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            # Generate verification token
+            token = account_activation_token.make_token(user)
             
-            user = serializer.save()
-            refresh = RefreshToken.for_user(user)
-            
+            # Send verification email
+            verification_link = f"http://localhost:5173/verify_email?token={token}"
+            send_mail(
+                'Verify your LinkUp account',
+                f'''Welcome to LinkUp! Please verify your email address to complete your registration.
+                
+Click this link to verify your email: {verification_link}
+
+If you didn't create this account, please ignore this email.''',
+                settings.EMAIL_HOST_USER,
+                [user.email],
+                fail_silently=False,
+            )
+
             return Response({
-                'user': UserSerializer(user).data,
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
-                'message': 'Registration successful!'
+                'message': 'Registration successful. Please check your email to verify your account.',
+                'email': user.email
             }, status=status.HTTP_201_CREATED)
-            
-        except Exception as e:
-            print(f"Registration error: {str(e)}")  # Debug print
-            import traceback
-            print("Full traceback:", traceback.format_exc())  # Debug print
-            return Response({
-                'error': str(e),
-                'message': 'Registration failed'
-            }, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['post'])
     def login(self, request):
         email = request.data.get('email')
         password = request.data.get('password')
         
-        if not email or not password:
+        try:
+            user = User.objects.get(email=email)
+            
+            if not user.is_active:
+                return Response({
+                    'error': 'Please verify your email before logging in.'
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            user = authenticate(email=email, password=password)
+            if user:
+                refresh = RefreshToken.for_user(user)
+                return Response({
+                    'user': UserSerializer(user).data,
+                    'refresh': str(refresh),
+                    'access': str(refresh.access_token),
+                })
+            else:
+                return Response({
+                    'error': 'Invalid credentials'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+                
+        except User.DoesNotExist:
             return Response({
-                'detail': 'Please provide both email and password'
+                'error': 'No account found with this email'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=False, methods=['post'])
+    def resend_verification(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({
+                'error': 'Email is required'
             }, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            user = User.objects.get(email=email)
+            
+            if user.is_active:
+                return Response({
+                    'error': 'Email is already verified'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Generate new verification token
+            token = account_activation_token.make_token(user)
 
-        user = authenticate(username=email, password=password)
-        if not user:
+            # Send verification email
+            verification_link = f"http://localhost:5173/verify_email?token={token}"
+            send_mail(
+                'Verify your LinkUp account',
+                f'''Welcome to LinkUp! Please verify your email address to complete your registration.
+                
+Click this link to verify your email: {verification_link}
+
+If you didn't create this account, please ignore this email.''',
+                settings.EMAIL_HOST_USER,
+                [email],
+                fail_silently=False,
+            )
+            
             return Response({
-                'detail': 'Invalid credentials'
-            }, status=status.HTTP_401_UNAUTHORIZED)
-
-        refresh = RefreshToken.for_user(user)
-        return Response({
-            'user': UserSerializer(user).data,
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
-        })
+                'message': 'Verification email has been resent'
+            })
+        except User.DoesNotExist:
+            return Response({
+                'error': 'No account found with this email'
+            }, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=False, methods=['get'])
     def me(self, request):
@@ -151,7 +238,7 @@ class AuthViewSet(viewsets.GenericViewSet):
                     graduation_year=register_data.get('graduation_year'),
                     department=register_data.get('department'),
                     google_id=userinfo['sub'],
-                    is_verified=True
+                    is_active=True  # Google-authenticated users are automatically verified
                 )
 
             # Generate JWT tokens
@@ -169,22 +256,6 @@ class AuthViewSet(viewsets.GenericViewSet):
             print("Full traceback:", traceback.format_exc())
             return Response({
                 'error': str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-    @action(detail=False, methods=['get'])
-    def verify_email(self, request):
-        token = request.query_params.get('token')
-        try:
-            user = User.objects.get(verification_token=token)
-            user.is_verified = True
-            user.verification_token = ''
-            user.save()
-            return Response({
-                'message': 'Email verified successfully'
-            })
-        except User.DoesNotExist:
-            return Response({
-                'error': 'Invalid verification token'
             }, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['post'])

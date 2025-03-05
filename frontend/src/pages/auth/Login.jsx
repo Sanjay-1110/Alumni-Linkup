@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { useGoogleLogin } from '@react-oauth/google';
+import axios from 'axios';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -10,22 +11,66 @@ const Login = () => {
     password: '',
   });
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, googleAuth } = useAuth();
+
+  useEffect(() => {
+    // Show success message if redirected from email verification
+    if (location.state?.message) {
+      setSuccess(location.state.message);
+      // Clear the message from location state
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    const result = await login(formData.email, formData.password);
-    if (result.success) {
+    try {
+      await login(formData.email, formData.password);
       navigate('/dashboard');
-    } else {
-      setError(result.error);
+    } catch (error) {
+      const errorMessage = error.response?.data?.error || 'Login failed';
+      setError(errorMessage);
+      
+      // If email is not verified, show a more detailed message
+      if (errorMessage.includes('verify your email')) {
+        setError(
+          <div>
+            <p>{errorMessage}</p>
+            <p className="mt-2">
+              Didn't receive the verification email?{' '}
+              <button 
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    const response = await axios.post('/api/auth/resend_verification/', { 
+                      email: formData.email 
+                    });
+                    setError('A new verification email has been sent. Please check your inbox.');
+                  } catch (err) {
+                    setError(err.response?.data?.error || 'Failed to resend verification email. Please try again.');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                className="text-primary-600 hover:text-primary-500 font-medium"
+                disabled={loading}
+              >
+                {loading ? 'Sending...' : 'Resend verification email'}
+              </button>
+            </p>
+          </div>
+        );
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleGoogleLogin = useGoogleLogin({
@@ -83,6 +128,16 @@ const Login = () => {
             </Link>
           </motion.p>
         </div>
+
+        {success && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-green-50 text-green-500 p-3 rounded-lg text-sm"
+          >
+            {success}
+          </motion.div>
+        )}
 
         {error && (
           <motion.div

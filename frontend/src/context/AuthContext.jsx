@@ -14,6 +14,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -74,20 +75,25 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (email, password) => {
+    setLoading(true);
+    setError(null);
     try {
-      const response = await axios.post('/api/auth/login/', { email, password });
-      const { access, refresh, user: userData } = response.data;
+      const response = await axios.post('/api/auth/login/', {
+        email,
+        password
+      });
+
+      const { user, access, refresh } = response.data;
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
       axios.defaults.headers.common['Authorization'] = `Bearer ${access}`;
-      setUser(userData);
-      return { success: true };
+      setUser(user);
+      setLoading(false);
+      return response.data;
     } catch (error) {
-      console.error('Login error:', error.response || error);
-      return {
-        success: false,
-        error: error.response?.data?.detail || 'Login failed',
-      };
+      setError(error.response?.data?.error || 'An error occurred during login');
+      setLoading(false);
+      throw error;
     }
   };
 
@@ -140,6 +146,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     loading,
+    error,
     register,
     login,
     googleAuth,

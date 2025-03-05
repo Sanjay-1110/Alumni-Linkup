@@ -2,68 +2,73 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'email', 'first_name', 'last_name', 'graduation_year', 'department', 'is_verified')
-        read_only_fields = ('is_verified',)
+        fields = ['id', 'email', 'first_name', 'last_name', 'graduation_year', 'department', 'is_active']
+        read_only_fields = ['is_active']
 
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
-    confirm_password = serializers.CharField(write_only=True, required=True)
+    password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+    graduation_year = serializers.IntegerField(
+        validators=[
+            MinValueValidator(1900),
+            MaxValueValidator(2100)
+        ]
+    )
 
     class Meta:
         model = User
-        fields = ('email', 'username', 'first_name', 'last_name', 'password', 'confirm_password', 'graduation_year', 'department')
+        fields = ['email', 'username', 'password', 'confirm_password', 'first_name', 'last_name', 'graduation_year', 'department']
         extra_kwargs = {
             'first_name': {'required': True},
             'last_name': {'required': True},
             'graduation_year': {'required': True},
-            'department': {'required': True},
+            'department': {'required': True}
         }
 
-    def validate(self, attrs):
-        if attrs['password'] != attrs['confirm_password']:
-            raise serializers.ValidationError({"password": "Password fields didn't match."})
+    def validate(self, data):
+        if data['password'] != data['confirm_password']:
+            raise serializers.ValidationError("Passwords do not match")
         
-        # Remove confirm_password from the attributes
-        attrs.pop('confirm_password', None)
+        # Remove confirm_password from the data
+        data.pop('confirm_password')
         
         # Set username to email if not provided
-        if 'username' not in attrs or not attrs['username']:
-            attrs['username'] = attrs['email']
+        if not data.get('username'):
+            data['username'] = data['email']
             
-        return attrs
+        return data
 
     def create(self, validated_data):
-        user = User.objects.create_user(**validated_data)
-        return user
+        return User.objects.create_user(**validated_data)
 
 class GoogleAuthSerializer(serializers.Serializer):
-    token = serializers.CharField(required=True)
-    register_data = serializers.DictField(required=False, allow_null=True)
+    token = serializers.CharField()
+    register_data = serializers.DictField(required=False)
 
     def validate_register_data(self, value):
-        if value is not None:
+        if value:
             required_fields = ['graduation_year', 'department']
-            missing_fields = [field for field in required_fields if field not in value]
-            if missing_fields:
-                raise serializers.ValidationError(f"Missing required fields: {', '.join(missing_fields)}")
-            
-            # Validate graduation year
+            for field in required_fields:
+                if field not in value:
+                    raise serializers.ValidationError(f"{field} is required")
+
+            # Validate graduation_year
             try:
-                graduation_year = int(value.get('graduation_year'))
-                current_year = timezone.now().year
-                if graduation_year < 1900 or graduation_year > current_year + 10:
+                year = int(value['graduation_year'])
+                if not (1900 <= year <= 2100):
                     raise serializers.ValidationError("Invalid graduation year")
             except (ValueError, TypeError):
                 raise serializers.ValidationError("Invalid graduation year format")
-            
+
             # Validate department
-            if value.get('department') not in dict(User.DEPARTMENT_CHOICES).keys():
-                raise serializers.ValidationError("Invalid department")
-                
+            if not value['department']:
+                raise serializers.ValidationError("Department is required")
+
         return value 
