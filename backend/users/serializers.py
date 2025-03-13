@@ -50,7 +50,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class GoogleAuthSerializer(serializers.Serializer):
     token = serializers.CharField()
-    register_data = serializers.DictField(required=False)
+    register_data = serializers.DictField(required=False, allow_null=True)
 
     def validate_register_data(self, value):
         if value:

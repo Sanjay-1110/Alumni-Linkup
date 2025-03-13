@@ -188,29 +188,22 @@ If you didn't create this account, please ignore this email.''',
             serializer.is_valid(raise_exception=True)
             
             # Get user info using the access token
-            try:
-                access_token = serializer.validated_data['token']
-                userinfo_url = 'https://www.googleapis.com/oauth2/v3/userinfo'
-                headers = {'Authorization': f'Bearer {access_token}'}
-                
-                import requests as http_requests
-                response = http_requests.get(userinfo_url, headers=headers)
-                if response.status_code != 200:
-                    raise ValueError('Failed to get user info from Google')
-                
-                userinfo = response.json()
-                print("Google user info:", userinfo)  # Debug print
-                
-                # Verify the user's email
-                if not userinfo.get('email') or not userinfo.get('email_verified'):
-                    raise ValueError('Email not verified with Google')
-
-            except Exception as e:
-                print(f"Google API error: {str(e)}")
-                return Response({
-                    'error': 'Failed to verify Google token',
-                    'detail': str(e)
-                }, status=status.HTTP_400_BAD_REQUEST)
+            access_token = serializer.validated_data['token']
+            userinfo_url = 'https://www.googleapis.com/oauth2/v3/userinfo'
+            headers = {'Authorization': f'Bearer {access_token}'}
+            
+            import requests as http_requests
+            response = http_requests.get(userinfo_url, headers=headers)
+            
+            if response.status_code != 200:
+                raise ValueError('Failed to get user info from Google')
+            
+            userinfo = response.json()
+            print("Google userinfo:", userinfo)  # Debug print
+            
+            # Verify the user's email
+            if not userinfo.get('email') or not userinfo.get('email_verified'):
+                raise ValueError('Email not verified with Google')
 
             # Try to find existing user
             try:
@@ -219,14 +212,26 @@ If you didn't create this account, please ignore this email.''',
                 if not user.google_id:
                     user.google_id = userinfo['sub']
                     user.save()
+                
+                # Generate JWT tokens for existing user
+                refresh = RefreshToken.for_user(user)
+                return Response({
+                    'user': UserSerializer(user).data,
+                    'refresh': str(refresh),
+                    'access': str(refresh.access_token),
+                    'message': 'Successfully authenticated with Google'
+                })
+                
             except User.DoesNotExist:
-                # If user doesn't exist, check if we have registration data
+                # User doesn't exist, check for registration data
                 register_data = serializer.validated_data.get('register_data')
                 if not register_data:
                     return Response({
                         'error': 'User does not exist',
                         'requires_registration': True,
-                        'email': userinfo['email']
+                        'email': userinfo['email'],
+                        'first_name': userinfo.get('given_name', ''),
+                        'last_name': userinfo.get('family_name', '')
                     }, status=status.HTTP_400_BAD_REQUEST)
                 
                 # Create new user with Google data and registration data
@@ -238,17 +243,17 @@ If you didn't create this account, please ignore this email.''',
                     graduation_year=register_data.get('graduation_year'),
                     department=register_data.get('department'),
                     google_id=userinfo['sub'],
-                    is_active=True  # Google-authenticated users are automatically verified
+                    is_active=True
                 )
-
-            # Generate JWT tokens
-            refresh = RefreshToken.for_user(user)
-            return Response({
-                'user': UserSerializer(user).data,
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
-                'message': 'Successfully authenticated with Google'
-            })
+                
+                # Generate JWT tokens for new user
+                refresh = RefreshToken.for_user(user)
+                return Response({
+                    'user': UserSerializer(user).data,
+                    'refresh': str(refresh),
+                    'access': str(refresh.access_token),
+                    'message': 'Successfully registered with Google'
+                })
 
         except Exception as e:
             print(f"Google auth error: {str(e)}")

@@ -76,16 +76,19 @@ const Login = () => {
   const handleGoogleLogin = useGoogleLogin({
     onSuccess: async (response) => {
       try {
-        const result = await googleAuth(response.access_token);
+          const { credential } = response;  // Get ID token instead of access token
+          let result = await googleAuth(credential);
         if (result.success) {
           navigate('/dashboard');
         } else {
           setError(result.error);
         }
       } catch (error) {
-        setError('Failed to authenticate with Google');
+        console.error('Google auth error:', error);
+        setError('Failed to authenticate with Google. Please try again.');
       }
     },
+    flow: 'auth-code',
     onError: () => setError('Google Sign-In failed'),
   });
 
