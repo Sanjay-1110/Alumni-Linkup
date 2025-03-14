@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('refresh_token', refresh);
       axios.defaults.headers.common['Authorization'] = `Bearer ${access}`;
       setUser(responseUser);
-      return { success: true, message: response.data.message || 'Registration successful!' };
+      return { success: true, message: 'Registration successful!' };
     } catch (error) {
       console.error('Registration error details:', {
         data: error.response?.data,
@@ -83,56 +83,17 @@ export const AuthProvider = ({ children }) => {
         password
       });
 
-      const { user, access, refresh } = response.data;
+      const { user: responseUser, access, refresh } = response.data;
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
       axios.defaults.headers.common['Authorization'] = `Bearer ${access}`;
-      setUser(user);
+      setUser(responseUser);
       setLoading(false);
       return response.data;
     } catch (error) {
       setError(error.response?.data?.error || 'An error occurred during login');
       setLoading(false);
       throw error;
-    }
-  };
-
-  const googleAuth = async (token, registerData = null) => {
-    try {
-      console.log('Sending Google auth request:', {
-        token,
-        register_data: registerData
-      });
-
-      const response = await axios.post('/api/auth/google_auth/', {
-        token,
-        register_data: registerData
-      });
-      
-      console.log('Google auth response:', response.data);
-      
-      const { access, refresh, user: userData } = response.data;
-      localStorage.setItem('access_token', access);
-      localStorage.setItem('refresh_token', refresh);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${access}`;
-      setUser(userData);
-      
-      return { success: true };
-    } catch (error) {
-      console.error('Google auth error details:', {
-        data: error.response?.data,
-        status: error.response?.status,
-        headers: error.response?.headers
-      });
-      
-      const errorMessage = error.response?.data?.detail || 
-                         error.response?.data?.error ||
-                         'Google authentication failed. Please try again.';
-      
-      return {
-        success: false,
-        error: errorMessage
-      };
     }
   };
 
@@ -147,11 +108,16 @@ export const AuthProvider = ({ children }) => {
     user,
     loading,
     error,
+    setUser,
+    setError,
     register,
     login,
-    googleAuth,
-    logout,
+    logout
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 }; 

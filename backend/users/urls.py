@@ -1,11 +1,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import UserViewSet, verify_email
+from .views import UserViewSet, AuthViewSet
 
 router = DefaultRouter()
-router.register(r'', UserViewSet, basename='users')
+router.register(r'', UserViewSet, basename='auth')
 
 urlpatterns = [
-    path('verify_email/', verify_email, name='verify_email'),
     path('', include(router.urls)),
+    path('network/', AuthViewSet.as_view({'get': 'network'}), name='network'),
 ] 
