@@ -7,12 +7,12 @@ import { useGoogleLogin } from '@react-oauth/google';
 const Register = () => {
   const [formData, setFormData] = useState({
     email: '',
-    first_name: '',
-    last_name: '',
     password: '',
     confirm_password: '',
-    graduation_year: new Date().getFullYear(),
-    department: 'CSE',
+    first_name: '',
+    last_name: '',
+    department: '',
+    graduation_year: ''
   });
 
   const [error, setError] = useState('');
@@ -21,86 +21,31 @@ const Register = () => {
   const navigate = useNavigate();
   const { register, googleAuth } = useAuth();
 
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
     setLoading(true);
 
-    // Frontend validation
-    const validationErrors = [];
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      validationErrors.push('Please enter a valid email address');
-    }
-
-    // Password validation
-    if (formData.password.length < 8) {
-      validationErrors.push('Password must be at least 8 characters long');
-    }
-
-    if (!/[A-Z]/.test(formData.password)) {
-      validationErrors.push('Password must contain at least one uppercase letter');
-    }
-
-    if (!/[a-z]/.test(formData.password)) {
-      validationErrors.push('Password must contain at least one lowercase letter');
-    }
-
-    if (!/[0-9]/.test(formData.password)) {
-      validationErrors.push('Password must contain at least one number');
-    }
-
-    // Password confirmation
-    if (formData.password !== formData.confirm_password) {
-      validationErrors.push('Passwords do not match');
-    }
-
-    // Required fields
-    if (!formData.first_name || !formData.last_name) {
-      validationErrors.push('First name and last name are required');
-    }
-
-    // Graduation year validation
-    const currentYear = new Date().getFullYear();
-    if (formData.graduation_year < 1900 || formData.graduation_year > currentYear + 10) {
-      validationErrors.push('Please enter a valid graduation year');
-    }
-
-    // If there are validation errors, display them and stop
-    if (validationErrors.length > 0) {
-      setError(validationErrors.join('\n'));
-      setLoading(false);
-      return;
-    }
-
-    // Convert graduation_year to number
-    const registrationData = {
-      ...formData,
-      graduation_year: parseInt(formData.graduation_year),
-    };
-
     try {
-      const result = await register(registrationData);
-      if (result.success) {
-        setSuccess(result.message);
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 2000);
-      } else {
-        setError(
-          typeof result.error === 'object'
-            ? Object.values(result.error).flat().join('\n')
-            : result.error
-        );
+      if (formData.password !== formData.confirm_password) {
+        throw new Error('Passwords do not match');
       }
+
+      await register(formData);
+      navigate('/dashboard');
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
-      console.error('Registration error:', err);
+      setError(err.response?.data?.error || err.message || 'Failed to register');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleGoogleLogin = useGoogleLogin({
@@ -145,14 +90,6 @@ const Register = () => {
     },
     flow: 'implicit'
   });
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-primary-50 to-white py-12 px-4 sm:px-6 lg:px-8">
@@ -238,123 +175,139 @@ const Register = () => {
           className="mt-8 space-y-6"
           onSubmit={handleSubmit}
         >
-          <div className="space-y-4">
+          <div className="rounded-md shadow-sm space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email address
               </label>
               <input
+                id="email"
                 name="email"
                 type="email"
                 required
                 value={formData.email}
                 onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                First name
+              <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">
+                First Name
               </label>
               <input
+                id="first_name"
                 name="first_name"
                 type="text"
                 required
                 value={formData.first_name}
                 onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Last name
+              <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">
+                Last Name
               </label>
               <input
+                id="last_name"
                 name="last_name"
                 type="text"
                 required
                 value={formData.last_name}
                 onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <input
-                name="password"
-                type="password"
-                required
-                value={formData.password}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Confirm Password
-              </label>
-              <input
-                name="confirm_password"
-                type="password"
-                required
-                value={formData.confirm_password}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Graduation Year
-              </label>
-              <input
-                name="graduation_year"
-                type="number"
-                required
-                value={formData.graduation_year}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                min="1900"
-                max="2100"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label htmlFor="department" className="block text-sm font-medium text-gray-700">
                 Department
               </label>
               <select
+                id="department"
                 name="department"
+                required
                 value={formData.department}
                 onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md"
               >
+                <option value="">Select Department</option>
                 <option value="CSE">Computer Science and Engineering</option>
                 <option value="EEE">Electrical and Electronics Engineering</option>
                 <option value="ECE">Electronics and Communication Engineering</option>
                 <option value="AGRI">Agriculture</option>
               </select>
             </div>
+
+            <div>
+              <label htmlFor="graduation_year" className="block text-sm font-medium text-gray-700">
+                Graduation Year
+              </label>
+              <input
+                id="graduation_year"
+                name="graduation_year"
+                type="number"
+                required
+                min="1900"
+                max="2100"
+                value={formData.graduation_year}
+                onChange={handleChange}
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                value={formData.password}
+                onChange={handleChange}
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700">
+                Confirm Password
+              </label>
+              <input
+                id="confirm_password"
+                name="confirm_password"
+                type="password"
+                required
+                value={formData.confirm_password}
+                onChange={handleChange}
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              />
+            </div>
           </div>
 
           <div>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+            <button
               type="submit"
               disabled={loading}
-              className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 ${
-                loading ? 'opacity-75 cursor-not-allowed' : ''
-              }`}
+              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white ${
+                loading ? 'bg-primary-400' : 'bg-primary-600 hover:bg-primary-700'
+              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500`}
             >
-              {loading ? 'Creating account...' : 'Create account'}
-            </motion.button>
+              {loading ? 'Registering...' : 'Register'}
+            </button>
+          </div>
+
+          <div className="text-sm text-center">
+            <Link
+              to="/login"
+              className="font-medium text-primary-600 hover:text-primary-500"
+            >
+              Already have an account? Login
+            </Link>
           </div>
         </motion.form>
       </motion.div>

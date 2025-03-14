@@ -9,8 +9,11 @@ User = get_user_model()
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'email', 'first_name', 'last_name', 'graduation_year', 'department', 'is_active']
-        read_only_fields = ['is_active']
+        fields = [
+            'id', 'email', 'first_name', 'last_name', 'department',
+            'graduation_year', 'about', 'phone_number', 'profile_pic'
+        ]
+        read_only_fields = ['id', 'email']
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -24,13 +27,11 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['email', 'username', 'password', 'confirm_password', 'first_name', 'last_name', 'graduation_year', 'department']
-        extra_kwargs = {
-            'first_name': {'required': True},
-            'last_name': {'required': True},
-            'graduation_year': {'required': True},
-            'department': {'required': True}
-        }
+        fields = [
+            'email', 'password', 'confirm_password', 'first_name', 'last_name',
+            'department', 'graduation_year'
+        ]
+        extra_kwargs = {'password': {'write_only': True}}
 
     def validate(self, data):
         if data['password'] != data['confirm_password']:
@@ -46,11 +47,20 @@ class RegisterSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        return User.objects.create_user(**validated_data)
+        user = User.objects.create_user(
+            username=validated_data['email'],
+            email=validated_data['email'],
+            password=validated_data['password'],
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', ''),
+            department=validated_data.get('department', ''),
+            graduation_year=validated_data.get('graduation_year')
+        )
+        return user
 
 class GoogleAuthSerializer(serializers.Serializer):
     token = serializers.CharField()
-    register_data = serializers.DictField(required=False, allow_null=True)
+    register_data = serializers.DictField(required=False)
 
     def validate_register_data(self, value):
         if value:

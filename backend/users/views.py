@@ -223,39 +223,42 @@ class AuthViewSet(viewsets.GenericViewSet):
         """Get users based on filters"""
         try:
             # Get query parameters
-            search = request.query_params.get('search', '')
-            department = request.query_params.get('department', '')
+            search_term = request.query_params.get('search', '').strip()
             graduation_year = request.query_params.get('graduation_year', '')
             
             # Start with all users except the current user
             queryset = User.objects.exclude(id=request.user.id)
             
-            # Apply filters
-            if search:
+            # Apply search if provided
+            if search_term:
                 queryset = queryset.filter(
-                    Q(first_name__icontains=search) |
-                    Q(last_name__icontains=search) |
-                    Q(email__icontains=search)
+                    Q(first_name__icontains=search_term) |
+                    Q(last_name__icontains=search_term) |
+                    Q(department__icontains=search_term)
                 )
             
-            if department:
-                queryset = queryset.filter(department=department)
-                
+            # Apply graduation year filter if provided
             if graduation_year:
                 queryset = queryset.filter(graduation_year=graduation_year)
-                
+            
             # Get batch mates (same department and graduation year)
-            batch_mates = queryset.filter(
+            batch_mates = User.objects.filter(
                 department=request.user.department,
                 graduation_year=request.user.graduation_year
-            )
+            ).exclude(id=request.user.id)
             
             # Get department-wise users
             department_users = {}
-            for dept in ['CSE', 'EEE', 'ECE', 'AGRI']:  # Update with your departments
-                dept_users = queryset.filter(department=dept)
-                if dept_users.exists():
-                    department_users[dept] = UserSerializer(dept_users, many=True).data
+            departments = ['CSE', 'EEE', 'ECE', 'AGRI']  # Update with your departments
+            
+            # If searching, only include departments that match the search
+            if search_term:
+                departments = [d for d in departments if search_term.upper() in d]
+            
+            for dept in departments:
+                dept_queryset = queryset.filter(department=dept)
+                if dept_queryset.exists():
+                    department_users[dept] = UserSerializer(dept_queryset, many=True).data
             
             return Response({
                 'batch_mates': UserSerializer(batch_mates, many=True).data,
@@ -267,4 +270,58 @@ class AuthViewSet(viewsets.GenericViewSet):
             return Response({
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=['get', 'patch'])
+    def profile(self, request, pk=None):
+        try:
+            user = self.get_object()
+            if request.method == 'GET':
+                data = UserSerializer(user).data
+                data['is_followed_by_current_user'] = user.followers.filter(id=request.user.id).exists()
+                return Response(data)
+            
+            elif request.method == 'PATCH' and request.user.id == user.id:
+                # Handle profile picture upload
+                if 'profile_pic' in request.FILES:
+                    user.profile_pic = request.FILES['profile_pic']
+                    user.save()
+                    return Response(UserSerializer(user).data)
+                
+                # Handle JSON data
+                serializer = UserSerializer(user, data=request.data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response(serializer.data)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+            
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'])
+    def follow(self, request, pk=None):
+        try:
+            user_to_follow = self.get_object()
+            if user_to_follow == request.user:
+                return Response(
+                    {'error': 'You cannot follow yourself'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if request.user.following.filter(id=user_to_follow.id).exists():
+                request.user.following.remove(user_to_follow)
+                is_following = False
+            else:
+                request.user.following.add(user_to_follow)
+                is_following = True
+
+            return Response({
+                'is_following': is_following,
+                'follower_count': user_to_follow.followers.count(),
+                'following_count': user_to_follow.following.count()
+            })
+            
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

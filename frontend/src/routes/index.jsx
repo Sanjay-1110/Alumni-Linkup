@@ -10,6 +10,8 @@ import Networking from '../pages/Networking';
 import PublicLayout from '../components/layout/PublicLayout';
 import DashboardLayout from '../components/layout/DashboardLayout';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
+import Profile from '../pages/Profile';
+import Connections from '../pages/Connections';
 
 // Wrapper for public routes - redirects to dashboard if user is logged in
 const PublicRoute = ({ children }) => {
@@ -35,7 +37,7 @@ const AppRoutes = () => {
         }
       />
       
-      {/* Auth Routes - Protected from logged in users */}
+      {/* Auth Routes */}
       <Route
         path="/login"
         element={
@@ -74,22 +76,16 @@ const AppRoutes = () => {
         path="/dashboard"
         element={
           <ProtectedRoute>
-            <DashboardLayout>
-              <Dashboard />
-            </DashboardLayout>
+            <DashboardLayout />
           </ProtectedRoute>
         }
-      />
-      <Route
-        path="/dashboard/networking"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <Networking />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
+      >
+        <Route index element={<Dashboard />} />
+        <Route path="profile" element={<Profile />} />
+        <Route path="profile/:userId" element={<Profile />} />
+        <Route path="networking" element={<Networking />} />
+        <Route path="connections" element={<Connections />} />
+      </Route>
     </Routes>
   );
 };

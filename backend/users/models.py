@@ -11,11 +11,24 @@ class User(AbstractUser):
     ]
 
     email = models.EmailField(unique=True)
+    department = models.CharField(max_length=50, null=True, blank=True)
     graduation_year = models.IntegerField(null=True, blank=True)
-    department = models.CharField(max_length=100, null=True, blank=True)
-    google_id = models.CharField(max_length=255, null=True, blank=True)
-    reset_password_token = models.CharField(max_length=255, null=True, blank=True)
+    google_id = models.CharField(max_length=255, null=True, blank=True, default='')
+    reset_password_token = models.CharField(max_length=255, null=True, blank=True, default='')
     reset_password_expires = models.DateTimeField(null=True, blank=True)
+    
+    # Profile fields
+    about = models.TextField(blank=True, default='')
+    phone_number = models.CharField(max_length=20, blank=True, default='')
+    profile_pic = models.ImageField(upload_to='profile_pics/', null=True, blank=True)
+    
+    # Following relationship
+    following = models.ManyToManyField(
+        'self',
+        symmetrical=False,
+        related_name='followers',
+        blank=True
+    )
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
@@ -26,3 +39,6 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+    def get_full_name(self):
+        return f"{self.first_name} {self.last_name}"

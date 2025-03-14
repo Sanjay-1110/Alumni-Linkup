@@ -1,7 +1,7 @@
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useNavigate, Link, useLocation, Outlet } from 'react-router-dom';
 
-const DashboardLayout = ({ children }) => {
+const DashboardLayout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -29,7 +29,10 @@ const DashboardLayout = ({ children }) => {
 
         {/* User Profile Section */}
         <div className="px-4 py-4 border-b border-gray-200">
-          <div className="flex items-center space-x-3">
+          <Link 
+            to="/dashboard/profile"
+            className="flex items-center space-x-3 hover:bg-gray-50 p-2 rounded-lg transition-colors"
+          >
             <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
               <span className="text-primary-600 font-semibold">
                 {user?.first_name?.[0]}{user?.last_name?.[0]}
@@ -39,7 +42,7 @@ const DashboardLayout = ({ children }) => {
               <p className="text-sm font-medium text-gray-700">{user?.first_name} {user?.last_name}</p>
               <p className="text-xs text-gray-500">{user?.email}</p>
             </div>
-          </div>
+          </Link>
         </div>
 
         {/* Navigation Items */}
@@ -63,6 +66,21 @@ const DashboardLayout = ({ children }) => {
           })}
         </nav>
 
+        {/* Connections Link */}
+        <div className="px-2 py-2">
+          <Link
+            to="/dashboard/connections"
+            className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+              location.pathname === '/dashboard/connections'
+                ? 'bg-primary-50 text-primary-600'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+            }`}
+          >
+            <span className="mr-3">👥</span>
+            Connections
+          </Link>
+        </div>
+
         {/* Logout Button */}
         <div className="p-4 border-t border-gray-200">
           <button
@@ -77,7 +95,7 @@ const DashboardLayout = ({ children }) => {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto bg-gray-50">
-        {children}
+        <Outlet />
       </div>
     </div>
   );

@@ -14,7 +14,8 @@ const UserCard = ({ user }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
-    className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow"
+    className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+    onClick={() => window.location.href = `/dashboard/profile/${user.id}`}
   >
     <div className="flex items-center space-x-4">
       <div className="h-16 w-16 rounded-full bg-primary-100 flex items-center justify-center">
@@ -29,11 +30,6 @@ const UserCard = ({ user }) => (
         <p className="text-sm text-gray-600">{user.department}</p>
         <p className="text-sm text-gray-500">Batch of {user.graduation_year}</p>
       </div>
-    </div>
-    <div className="mt-4">
-      <button className="w-full py-2 px-4 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition duration-200">
-        Connect
-      </button>
     </div>
   </motion.div>
 );
@@ -56,10 +52,7 @@ const Networking = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState(null);
-  const [filters, setFilters] = useState({
-    department: '',
-    graduationYear: '',
-  });
+  const [graduationYear, setGraduationYear] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [networkData, setNetworkData] = useState({
@@ -76,8 +69,7 @@ const Networking = () => {
       
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
-      if (filters.department) params.append('department', filters.department);
-      if (filters.graduationYear) params.append('graduation_year', filters.graduationYear);
+      if (graduationYear) params.append('graduation_year', graduationYear);
       
       const response = await axios.get(`/api/auth/network/?${params}`);
       setNetworkData({
@@ -95,8 +87,12 @@ const Networking = () => {
 
   // Fetch data on mount and when filters change
   useEffect(() => {
-    fetchNetworkData();
-  }, [searchTerm, filters.department, filters.graduationYear]);
+    const debounceTimeout = setTimeout(() => {
+      fetchNetworkData();
+    }, 300); // Debounce search for better performance
+
+    return () => clearTimeout(debounceTimeout);
+  }, [searchTerm, graduationYear]);
 
   if (loading) {
     return (
@@ -124,33 +120,42 @@ const Networking = () => {
         animate={{ opacity: 1, y: 0 }}
         className="bg-white p-6 rounded-xl shadow-lg mb-8"
       >
-        <div className="flex flex-col md:flex-row md:items-center gap-4">
-          <div className="flex-1">
-            <input
-              type="text"
-              placeholder="Search alumni by name..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
+        <div className="space-y-4">
+          {/* Search Section */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Search Alumni
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search by name or department..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+            <p className="mt-1 text-sm text-gray-500">
+              Search will look through names and departments
+            </p>
           </div>
-          <div className="flex gap-4">
-            <select
-              value={filters.department}
-              onChange={(e) => setFilters(prev => ({ ...prev, department: e.target.value }))}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="">All Departments</option>
-              {departments.map(dept => (
-                <option key={dept.id} value={dept.id}>{dept.name}</option>
-              ))}
-            </select>
+
+          {/* Filters Section */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Filter by Graduation Year
+            </label>
             <input
               type="number"
-              placeholder="Graduation Year"
-              value={filters.graduationYear}
-              onChange={(e) => setFilters(prev => ({ ...prev, graduationYear: e.target.value }))}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="Enter graduation year"
+              value={graduationYear}
+              onChange={(e) => setGraduationYear(e.target.value)}
+              className="w-full md:w-48 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               min="1900"
               max="2100"
             />
@@ -158,47 +163,75 @@ const Networking = () => {
         </div>
       </motion.div>
 
-      {/* Your Batch Section */}
-      {networkData.batchMates.length > 0 && (
-        <section className="mb-12">
-          <motion.h2
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-2xl font-bold text-gray-900 mb-6"
-          >
-            Your Batch ({user?.graduation_year})
-          </motion.h2>
+      {/* Results Sections */}
+      {searchTerm && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mb-8"
+        >
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            Search Results
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {networkData.batchMates.map(user => (
+            {networkData.filteredUsers.map(user => (
               <UserCard key={user.id} user={user} />
             ))}
           </div>
-        </section>
+          {networkData.filteredUsers.length === 0 && (
+            <p className="text-gray-500 text-center py-8">
+              No results found for your search
+            </p>
+          )}
+        </motion.div>
       )}
 
-      {/* Departments Section */}
-      <section className="mb-12">
-        <motion.h2
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-2xl font-bold text-gray-900 mb-6"
-        >
-          Browse by Department
-        </motion.h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {departments.map(dept => (
-            <DepartmentCard
-              key={dept.id}
-              department={dept}
-              onSelect={setSelectedDepartment}
-              userCount={networkData.departmentUsers[dept.id]?.length || 0}
-            />
-          ))}
-        </div>
-      </section>
+      {/* Rest of the existing sections */}
+      {!searchTerm && (
+        <>
+          {/* Your Batch Section */}
+          {networkData.batchMates.length > 0 && (
+            <section className="mb-12">
+              <motion.h2
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-2xl font-bold text-gray-900 mb-6"
+              >
+                Your Batch ({user?.graduation_year})
+              </motion.h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {networkData.batchMates.map(user => (
+                  <UserCard key={user.id} user={user} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Departments Section */}
+          <section className="mb-12">
+            <motion.h2
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-2xl font-bold text-gray-900 mb-6"
+            >
+              Browse by Department
+            </motion.h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {departments.map(dept => (
+                <DepartmentCard
+                  key={dept.id}
+                  department={dept}
+                  onSelect={setSelectedDepartment}
+                  userCount={networkData.departmentUsers[dept.id]?.length || 0}
+                />
+              ))}
+            </div>
+          </section>
+        </>
+      )}
 
       {/* Selected Department Users */}
-      {selectedDepartment && networkData.departmentUsers[selectedDepartment.id] && (
+      {selectedDepartment && networkData.departmentUsers[selectedDepartment.id] && !searchTerm && (
         <section className="mb-12">
           <motion.h2
             initial={{ opacity: 0 }}
@@ -209,24 +242,6 @@ const Networking = () => {
           </motion.h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {networkData.departmentUsers[selectedDepartment.id].map(user => (
-              <UserCard key={user.id} user={user} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Filtered Users */}
-      {(searchTerm || filters.department || filters.graduationYear) && (
-        <section className="mb-12">
-          <motion.h2
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-2xl font-bold text-gray-900 mb-6"
-          >
-            Search Results
-          </motion.h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {networkData.filteredUsers.map(user => (
               <UserCard key={user.id} user={user} />
             ))}
           </div>
