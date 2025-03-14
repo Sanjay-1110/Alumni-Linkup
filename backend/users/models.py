@@ -42,3 +42,22 @@ class User(AbstractUser):
 
     def get_full_name(self):
         return f"{self.first_name} {self.last_name}"
+
+class Connection(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('ACCEPTED', 'Accepted'),
+        ('REJECTED', 'Rejected'),
+    ]
+    
+    sender = models.ForeignKey(User, related_name='sent_connections', on_delete=models.CASCADE)
+    receiver = models.ForeignKey(User, related_name='received_connections', on_delete=models.CASCADE)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['sender', 'receiver']
+
+    def __str__(self):
+        return f"{self.sender.email} -> {self.receiver.email} ({self.status})"

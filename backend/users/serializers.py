@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
+from .models import User, Connection
 
 User = get_user_model()
 
@@ -81,4 +82,29 @@ class GoogleAuthSerializer(serializers.Serializer):
             if not value['department']:
                 raise serializers.ValidationError("Department is required")
 
-        return value 
+        return value
+
+class ConnectionSerializer(serializers.ModelSerializer):
+    sender_details = serializers.SerializerMethodField()
+    receiver_details = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Connection
+        fields = ['id', 'sender', 'receiver', 'status', 'created_at', 'updated_at', 'sender_details', 'receiver_details']
+        read_only_fields = ['created_at', 'updated_at']
+
+    def get_sender_details(self, obj):
+        return {
+            'id': obj.sender.id,
+            'email': obj.sender.email,
+            'full_name': obj.sender.get_full_name(),
+            'profile_pic': obj.sender.profile_pic.url if obj.sender.profile_pic else None
+        }
+
+    def get_receiver_details(self, obj):
+        return {
+            'id': obj.receiver.id,
+            'email': obj.receiver.email,
+            'full_name': obj.receiver.get_full_name(),
+            'profile_pic': obj.receiver.profile_pic.url if obj.receiver.profile_pic else None
+        } 

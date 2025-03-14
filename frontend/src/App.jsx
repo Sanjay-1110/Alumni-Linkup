@@ -1,5 +1,6 @@
 import { BrowserRouter as Router } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import { Toaster } from 'react-hot-toast';
 import AppRoutes from './routes';
 import { AuthProvider } from './context/AuthContext';
 
@@ -9,6 +10,7 @@ function App() {
       <AuthProvider>
         <Router>
           <AppRoutes />
+          <Toaster position="top-right" />
         </Router>
       </AuthProvider>
     </GoogleOAuthProvider>

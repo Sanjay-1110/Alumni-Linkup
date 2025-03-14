@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from rest_framework import status, viewsets
-from rest_framework.decorators import action, authentication_classes
+from rest_framework.decorators import action, authentication_classes, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -13,7 +13,8 @@ import uuid
 import requests as http_requests
 from django.db.models import Q
 
-from .serializers import UserSerializer, RegisterSerializer, GoogleAuthSerializer
+from .serializers import UserSerializer, RegisterSerializer, GoogleAuthSerializer, ConnectionSerializer
+from .models import Connection
 
 User = get_user_model()
 
@@ -324,4 +325,99 @@ class AuthViewSet(viewsets.GenericViewSet):
             
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def send_connection_request(request, user_id):
+    try:
+        receiver = User.objects.get(id=user_id)
+        
+        # Check if connection already exists
+        existing_connection = Connection.objects.filter(
+            (Q(sender=request.user, receiver=receiver) | 
+             Q(sender=receiver, receiver=request.user))
+        ).first()
+        
+        if existing_connection:
+            return Response(
+                {"error": "Connection request already exists"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        connection = Connection.objects.create(
+            sender=request.user,
+            receiver=receiver,
+            status='PENDING'
+        )
+        
+        serializer = ConnectionSerializer(connection)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+    except User.DoesNotExist:
+        return Response(
+            {"error": "User not found"}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def handle_connection_request(request, connection_id):
+    try:
+        connection = Connection.objects.get(id=connection_id, receiver=request.user)
+        action = request.data.get('action')
+        
+        if action not in ['accept', 'reject']:
+            return Response(
+                {"error": "Invalid action"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        connection.status = 'ACCEPTED' if action == 'accept' else 'REJECTED'
+        connection.save()
+        
+        serializer = ConnectionSerializer(connection)
+        return Response(serializer.data)
+        
+    except Connection.DoesNotExist:
+        return Response(
+            {"error": "Connection request not found"}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_connection_requests(request):
+    connections = Connection.objects.filter(
+        receiver=request.user,
+        status='PENDING'
+    )
+    serializer = ConnectionSerializer(connections, many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_connections(request):
+    connections = Connection.objects.filter(
+        (Q(sender=request.user) | Q(receiver=request.user)),
+        status='ACCEPTED'
+    )
+    serializer = ConnectionSerializer(connections, many=True)
+    return Response(serializer.data)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def remove_connection(request, connection_id):
+    try:
+        connection = Connection.objects.get(
+            (Q(sender=request.user) | Q(receiver=request.user)),
+            id=connection_id,
+            status='ACCEPTED'
+        )
+        connection.delete()
+        return Response({'message': 'Connection removed successfully'})
+    except Connection.DoesNotExist:
+        return Response(
+            {"error": "Connection not found"}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
 

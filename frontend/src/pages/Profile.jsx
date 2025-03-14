@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { FiEdit2 } from 'react-icons/fi';
+import { toast } from 'react-hot-toast';
 
 const Profile = () => {
   const { userId } = useParams();
@@ -15,12 +16,66 @@ const Profile = () => {
   const [editedData, setEditedData] = useState({});
   const [isFollowing, setIsFollowing] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState(null);
+  const [connectionId, setConnectionId] = useState(null);
 
   const isOwnProfile = !userId || userId === currentUser?.id?.toString();
+
+  const fetchConnectionStatus = async () => {
+    if (!isOwnProfile) {
+      try {
+        // Check both connections and pending requests
+        const [connectionsResponse, requestsResponse] = await Promise.all([
+          axios.get('/api/users/connections/'),
+          axios.get('/api/users/connections/requests/')
+        ]);
+
+        // First check accepted connections
+        const connection = connectionsResponse.data.find(
+          conn => 
+            (conn.sender.id === currentUser.id && conn.receiver.id === parseInt(userId)) ||
+            (conn.receiver.id === currentUser.id && conn.sender.id === parseInt(userId))
+        );
+        
+        if (connection) {
+          setConnectionStatus('ACCEPTED');
+          setConnectionId(connection.id);
+          return;
+        }
+
+        // Then check pending requests
+        const pendingRequest = requestsResponse.data.find(
+          conn => 
+            (conn.sender.id === currentUser.id && conn.receiver.id === parseInt(userId)) ||
+            (conn.receiver.id === currentUser.id && conn.sender.id === parseInt(userId))
+        );
+
+        if (pendingRequest) {
+          setConnectionStatus('PENDING');
+          setConnectionId(pendingRequest.id);
+        } else {
+          setConnectionStatus(null);
+          setConnectionId(null);
+        }
+      } catch (err) {
+        console.error('Error fetching connection status:', err);
+      }
+    }
+  };
 
   useEffect(() => {
     fetchUserData();
   }, [userId]);
+
+  // Add a new useEffect to periodically check connection status
+  useEffect(() => {
+    if (!isOwnProfile) {
+      fetchConnectionStatus();
+      // Check every 5 seconds for connection status updates
+      const interval = setInterval(fetchConnectionStatus, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [userId, currentUser?.id, isOwnProfile]);
 
   const fetchUserData = async () => {
     try {
@@ -35,6 +90,7 @@ const Profile = () => {
       setUser(response.data);
       setIsFollowing(response.data.is_followed_by_current_user);
       setEditedData(response.data);
+      await fetchConnectionStatus();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to fetch user data');
     } finally {
@@ -81,12 +137,28 @@ const Profile = () => {
     }
   };
 
-  const handleFollow = async () => {
+  const handleConnect = async () => {
     try {
-      const response = await axios.post(`/api/auth/${userId}/follow/`);
-      setIsFollowing(response.data.is_following);
+      if (!connectionStatus) {
+        const response = await axios.post(`/api/users/connections/send/${userId}/`);
+        setConnectionStatus('PENDING');
+        toast.success('Connection request sent!');
+      }
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to follow user');
+      toast.error(err.response?.data?.error || 'Failed to send connection request');
+    }
+  };
+
+  const handleRemoveConnection = async () => {
+    try {
+      if (connectionId) {
+        await axios.post(`/api/users/connections/remove/${connectionId}/`);
+        setConnectionStatus(null);
+        setConnectionId(null);
+        toast.success('Connection removed successfully');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to remove connection');
     }
   };
 
@@ -187,7 +259,7 @@ const Profile = () => {
         <div className="flex flex-col items-center mb-8">
           <div className="relative mb-4">
             <div className="h-32 w-32 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden">
-              {user.profile_pic ? (
+              {user?.profile_pic ? (
                 <img
                   key={user.profile_pic}
                   src={user.profile_pic}
@@ -196,8 +268,8 @@ const Profile = () => {
                 />
               ) : (
                 <span className="text-4xl font-semibold text-primary-600">
-                  {user.first_name[0]}
-                  {user.last_name[0]}
+                  {user?.first_name?.[0]}
+                  {user?.last_name?.[0]}
                 </span>
               )}
             </div>
@@ -218,19 +290,31 @@ const Profile = () => {
             )}
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            {user.first_name} {user.last_name}
+            {user?.first_name} {user?.last_name}
           </h1>
           {!isOwnProfile && (
-            <button
-              onClick={handleFollow}
-              className={`px-6 py-2 rounded-lg transition duration-200 ${
-                isFollowing
-                  ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  : 'bg-primary-600 text-white hover:bg-primary-700'
-              }`}
-            >
-              {isFollowing ? 'Connected' : 'Connect'}
-            </button>
+            <div className="flex gap-2 justify-center">
+              {connectionStatus === 'ACCEPTED' ? (
+                <button
+                  onClick={handleRemoveConnection}
+                  className="px-6 py-2 rounded-lg transition duration-200 bg-red-100 text-red-700 hover:bg-red-200"
+                >
+                  Remove Connection
+                </button>
+              ) : (
+                <button
+                  onClick={handleConnect}
+                  disabled={connectionStatus === 'PENDING'}
+                  className={`px-6 py-2 rounded-lg transition duration-200 ${
+                    connectionStatus === 'PENDING'
+                      ? 'bg-gray-100 text-gray-700 cursor-not-allowed'
+                      : 'bg-primary-600 text-white hover:bg-primary-700'
+                  }`}
+                >
+                  {connectionStatus === 'PENDING' ? 'Connection Requested' : 'Connect'}
+                </button>
+              )}
+            </div>
           )}
         </div>
 
