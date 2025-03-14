@@ -12,11 +12,19 @@ const ConnectionCard = ({ connection, onAccept, onReject, onRemove, type }) => {
   return (
     <div className="bg-white p-4 rounded-lg shadow mb-4 flex items-center justify-between">
       <div className="flex items-center space-x-4">
-        <img
-          src={user.profile_pic || '/default-avatar.png'}
-          alt={user.full_name}
-          className="w-12 h-12 rounded-full object-cover"
-        />
+        <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden">
+          {user.profile_pic ? (
+            <img
+              src={user.profile_pic.startsWith('http') ? user.profile_pic : `http://localhost:8000${user.profile_pic}`}
+              alt={user.full_name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <span className="text-lg font-semibold text-primary-600">
+              {user.first_name?.[0]}{user.last_name?.[0]}
+            </span>
+          )}
+        </div>
         <div>
           <h3 className="font-medium text-gray-900">{user.full_name}</h3>
           <p className="text-sm text-gray-500">{user.email}</p>

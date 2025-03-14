@@ -18,10 +18,18 @@ const UserCard = ({ user }) => (
     onClick={() => window.location.href = `/dashboard/profile/${user.id}`}
   >
     <div className="flex items-center space-x-4">
-      <div className="h-16 w-16 rounded-full bg-primary-100 flex items-center justify-center">
-        <span className="text-2xl font-semibold text-primary-600">
-          {user.first_name[0]}{user.last_name[0]}
-        </span>
+      <div className="h-16 w-16 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden">
+        {user.profile_pic ? (
+          <img
+            src={user.profile_pic.startsWith('http') ? user.profile_pic : `http://localhost:8000${user.profile_pic}`}
+            alt={`${user.first_name} ${user.last_name}`}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <span className="text-2xl font-semibold text-primary-600">
+            {user.first_name[0]}{user.last_name[0]}
+          </span>
+        )}
       </div>
       <div>
         <h3 className="text-lg font-semibold text-gray-900">
