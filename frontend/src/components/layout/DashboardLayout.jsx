@@ -66,8 +66,22 @@ const DashboardLayout = () => {
           })}
         </nav>
 
-        {/* Connections Link */}
-        <div className="px-2 py-2">
+        {/* Bottom Links */}
+        <div className="px-2 py-2 space-y-1">
+          {/* Messages Link */}
+          <Link
+            to="/dashboard/messages"
+            className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+              location.pathname === '/dashboard/messages'
+                ? 'bg-primary-50 text-primary-600'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+            }`}
+          >
+            <span className="mr-3">💬</span>
+            Messages
+          </Link>
+
+          {/* Connections Link */}
           <Link
             to="/dashboard/connections"
             className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${

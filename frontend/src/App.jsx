@@ -7,12 +7,12 @@ import { AuthProvider } from './context/AuthContext';
 function App() {
   return (
     <GoogleOAuthProvider clientId="1009859219635-jpmqpp4hvpuj2j85vjn7g700pvpbcb3d.apps.googleusercontent.com">
-      <AuthProvider>
-        <Router>
+      <Router>
+        <AuthProvider>
           <AppRoutes />
           <Toaster position="top-right" />
-        </Router>
-      </AuthProvider>
+        </AuthProvider>
+      </Router>
     </GoogleOAuthProvider>
   );
 }

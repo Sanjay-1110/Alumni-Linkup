@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { motion } from 'framer-motion';
@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 const Profile = () => {
   const { userId } = useParams();
   const { user: currentUser } = useAuth();
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -191,6 +192,10 @@ const Profile = () => {
     }
   };
 
+  const handleMessageUser = () => {
+    navigate('/dashboard/messages', { state: { selectedUser: user } });
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -251,81 +256,95 @@ const Profile = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-xl shadow-lg p-8"
-      >
-        <div className="flex flex-col items-center mb-8">
-          <div className="relative mb-4">
-            <div className="h-32 w-32 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden">
-              {user?.profile_pic ? (
-                <img
-                  key={user.profile_pic}
-                  src={user.profile_pic}
-                  alt="Profile"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <span className="text-4xl font-semibold text-primary-600">
-                  {user?.first_name?.[0]}
-                  {user?.last_name?.[0]}
-                </span>
-              )}
-            </div>
-            {isOwnProfile && (
-              <div className="absolute bottom-0 right-0">
-                <label className="cursor-pointer">
+      <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+        {/* Profile Header */}
+        <div className="relative h-48 bg-gradient-to-r from-primary-500 to-primary-600">
+          <div className="absolute -bottom-16 left-8 flex items-end space-x-6">
+            {/* Profile Picture */}
+            <div className="relative">
+              <div className="w-32 h-32 rounded-full border-4 border-white overflow-hidden bg-white">
+                {user.profile_pic ? (
+                  <img
+                    src={user.profile_pic}
+                    alt={`${user.first_name}'s profile`}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-primary-100 text-primary-600 text-3xl font-bold">
+                    {user.first_name?.[0]}{user.last_name?.[0]}
+                  </div>
+                )}
+              </div>
+              {isOwnProfile && (
+                <label className="absolute bottom-0 right-0 bg-primary-600 text-white p-2 rounded-full cursor-pointer hover:bg-primary-700 transition-colors">
                   <input
                     type="file"
                     className="hidden"
                     accept="image/*"
                     onChange={handleImageChange}
                   />
-                  <div className="bg-primary-600 text-white p-2 rounded-full hover:bg-primary-700">
-                    <FiEdit2 className="w-4 h-4" />
-                  </div>
+                  <FiEdit2 className="w-4 h-4" />
                 </label>
-              </div>
-            )}
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            {user?.first_name} {user?.last_name}
-          </h1>
-          {!isOwnProfile && (
-            <div className="flex gap-2 justify-center">
-              {connectionStatus === 'ACCEPTED' ? (
-                <button
-                  onClick={handleRemoveConnection}
-                  className="px-6 py-2 rounded-lg transition duration-200 bg-red-100 text-red-700 hover:bg-red-200"
-                >
-                  Remove Connection
-                </button>
-              ) : (
-                <button
-                  onClick={handleConnect}
-                  disabled={connectionStatus === 'PENDING'}
-                  className={`px-6 py-2 rounded-lg transition duration-200 ${
-                    connectionStatus === 'PENDING'
-                      ? 'bg-gray-100 text-gray-700 cursor-not-allowed'
-                      : 'bg-primary-600 text-white hover:bg-primary-700'
-                  }`}
-                >
-                  {connectionStatus === 'PENDING' ? 'Connection Requested' : 'Connect'}
-                </button>
               )}
             </div>
-          )}
+            
+            {/* Name and Actions */}
+            <div className="mb-4 flex items-center space-x-4">
+              <div>
+                <h1 className="text-2xl font-bold text-white">
+                  {user.first_name} {user.last_name}
+                </h1>
+                <p className="text-primary-100">{user.email}</p>
+              </div>
+              
+              {!isOwnProfile && (
+                <div className="flex space-x-2">
+                  {connectionStatus === 'ACCEPTED' ? (
+                    <>
+                      <button
+                        onClick={handleMessageUser}
+                        className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                      >
+                        Message
+                      </button>
+                      <button
+                        onClick={handleRemoveConnection}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                      >
+                        Remove Connection
+                      </button>
+                    </>
+                  ) : connectionStatus === 'PENDING' ? (
+                    <button
+                      disabled
+                      className="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed"
+                    >
+                      Connection Requested
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleConnect}
+                      className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                    >
+                      Connect
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="space-y-6">
-          <EditableField label="First Name" field="first_name" />
-          <EditableField label="Last Name" field="last_name" />
-          <EditableField label="About Me" field="about" />
-          <EditableField label="Phone Number" field="phone_number" type="tel" />
-          <EditableField label="Email" field="email" type="email" />
+        {/* Rest of the profile content */}
+        <div className="p-8 pt-20">
+          <EditableField label="Bio" field="bio" />
+          <EditableField label="Location" field="location" />
+          <EditableField label="Company" field="company" />
+          <EditableField label="Job Title" field="job_title" />
+          <EditableField label="Skills" field="skills" />
+          <EditableField label="Interests" field="interests" />
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };

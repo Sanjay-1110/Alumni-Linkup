@@ -2,12 +2,18 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
 const ConnectionCard = ({ connection, onAccept, onReject, onRemove, type }) => {
   const currentUserId = parseInt(localStorage.getItem('userId'));
+  const navigate = useNavigate();
   const user = type === 'request' ? connection.sender_details : 
     (connection.sender_details.id === currentUserId ? 
       connection.receiver_details : connection.sender_details);
+
+  const handleMessage = () => {
+    navigate('/dashboard/messages', { state: { selectedUser: user } });
+  };
 
   return (
     <div className="bg-white p-4 rounded-lg shadow mb-4 flex items-center justify-between">
@@ -48,7 +54,12 @@ const ConnectionCard = ({ connection, onAccept, onReject, onRemove, type }) => {
         </div>
       ) : (
         <div className="flex items-center space-x-4">
-          <span className="text-green-600 font-medium">Connected</span>
+          <button
+            onClick={handleMessage}
+            className="px-4 py-2 bg-primary-500 text-white rounded-md hover:bg-primary-600 transition"
+          >
+            Message
+          </button>
           <button
             onClick={() => onRemove(connection.id)}
             className="px-4 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition"

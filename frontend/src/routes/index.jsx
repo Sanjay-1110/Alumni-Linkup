@@ -12,10 +12,19 @@ import DashboardLayout from '../components/layout/DashboardLayout';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import Profile from '../pages/Profile';
 import Connections from '../pages/Connections';
+import Messages from '../pages/Messages';
 
 // Wrapper for public routes - redirects to dashboard if user is logged in
 const PublicRoute = ({ children }) => {
-  const { user } = useAuth();
+  const auth = useAuth();
+  
+  // Handle case when auth context is not available
+  if (!auth) {
+    console.error('AuthContext is undefined in PublicRoute');
+    return <PublicLayout>{children}</PublicLayout>;
+  }
+
+  const { user } = auth;
   
   if (user) {
     return <Navigate to="/dashboard" replace />;
@@ -85,6 +94,7 @@ const AppRoutes = () => {
         <Route path="profile/:userId" element={<Profile />} />
         <Route path="networking" element={<Networking />} />
         <Route path="connections" element={<Connections />} />
+        <Route path="messages" element={<Messages />} />
       </Route>
     </Routes>
   );
