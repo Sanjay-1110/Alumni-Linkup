@@ -30,6 +30,7 @@ urlpatterns = [
     path('api/auth/', include('users.urls')),
     path('api/users/', include('users.urls')),
     path('api/messaging/', include('messaging.urls')),
+    path('api/posts/', include('posts.urls')),
 ]
 
 # Serve media files in development

@@ -13,6 +13,7 @@ const DashboardLayout = () => {
 
   const navigationItems = [
     { name: 'Dashboard', path: '/dashboard', icon: '📊' },
+    { name: 'Feed', path: '/dashboard/feed', icon: '📝' },
     { name: 'Networking', path: '/dashboard/networking', icon: '🤝' },
     { name: 'Events', path: '/dashboard/events', icon: '📅' },
     { name: 'Mentorship', path: '/dashboard/mentorship', icon: '🎯' },
